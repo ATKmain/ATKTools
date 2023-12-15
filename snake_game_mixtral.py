@@ -1,6 +1,18 @@
-# This Python script is a basic implementation of the classic "Snake Game" using the Pygame library by AI Mistral in zero shot. 
-# It starts by importing necessary modules such as sys, random, and pygame. 
-# The game initializes Pygame and sets up the main display window with a specified size.
+# Snake Game in Python using Pygame Library by AI Mistral in zero shot. 
+
+# This program creates a simple snake game where the player controls a
+# snake to eat food. The objective is to grow the snake as long as possible
+# while avoiding collisions with the boundaries or the snake's own body.
+
+# Intro and Guide:
+# 1. Use arrow keys (up, down, left, right) to control the movement of the snake.
+# 2. The snake will grow longer every time it eats a piece of food.
+# 3. If the snake hits the boundary or itself, the game is over and you can
+#    restart the game by pressing 'C' key.
+# 4. The game speed increases as the length of the snake grows.
+
+# Happy playing!
+
 
 import sys
 import random
