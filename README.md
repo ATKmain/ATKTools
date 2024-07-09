@@ -9,23 +9,28 @@ Here's the current structure of the repository:
 ```
 ATKTools/
 │
-├── btc_cycles_comparison.py
-├── btc_price_history.py
+├── README.md
+├── tmp/
+│   └── [Temporary files go here]
 ├── data/
 │   └── [Data files go here]
 ├── gpu_benchmark_tensorflow.py
 ├── gpu_benchmark_torch.py
 ├── json-converter.html
 ├── json-converter2.html
+├── jsonstrin_to_json.py
 ├── md_to_docx.py
 ├── pdf_to_text.py
-├── README.md
 ├── snake_continue_codelama70b2.py
 ├── snake_game_codelama70b.py
 ├── snake_game_gemeni_pro.py
 ├── snake_game_mixtral.py
 ├── snake_game_mixtral_ollama2.py
 ├── snake_game_Whitemartina.py
+├── btc_cycles_comparison.py
+├── btc_price_history.py
+├── convertDocxToMD.py
+├── token_count.py
 ```
 
 ## Description of Files
@@ -34,17 +39,19 @@ ATKTools/
 - **btc_cycles_comparison.py**: Script for comparing Bitcoin market cycles.
 - **btc_price_history.py**: Script to fetch and analyze Bitcoin price history.
 
+### Document Conversion
+- **convertDocxToMD.py**: Script to convert DOCX files to Markdown format.
+- **md_to_docx.py**: Script to convert Markdown files to DOCX format.
+- **pdf_to_text.py**: Script to extract text from PDF files.
+
 ### GPU Benchmarking
 - **gpu_benchmark_tensorflow.py**: Benchmarking script for TensorFlow on GPU.
 - **gpu_benchmark_torch.py**: Benchmarking script for PyTorch on GPU.
 
-### JSON Conversion
+### JSON Utilities
 - **json-converter.html**: HTML file for a tool to convert JSON files.
 - **json-converter2.html**: Another version of the JSON converter tool.
-
-### Markdown and PDF Utilities
-- **md_to_docx.py**: Script to convert Markdown files to DOCX format.
-- **pdf_to_text.py**: Script to extract text from PDF files.
+- **jsonstrin_to_json.py**: Script to convert JSON strings to JSON format.
 
 ### Snake Game Variants
 - **snake_continue_codelama70b2.py**: Snake game implementation with Codelama70b2.
@@ -53,6 +60,9 @@ ATKTools/
 - **snake_game_mixtral.py**: Snake game implementation with Mixtral.
 - **snake_game_mixtral_ollama2.py**: Snake game implementation with Mixtral Ollama2.
 - **snake_game_Whitemartina.py**: Snake game implementation with Whitemartina.
+
+### Miscellaneous
+- **token_count.py**: Script to count tokens in a given input.
 
 ## Contributing
 

@@ -22,4 +22,4 @@ def prettify_json_string(file_path):
         print(f"An error occurred: {e}")
 
 # Replace 'path_to_your_file.json' with the actual file path
-prettify_json_string('tmp/file1_Coles.V2.json')
+prettify_json_string('tmp/test.json')
