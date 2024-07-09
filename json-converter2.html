@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced JSON Converter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .status-bar {
+            width: 95%;
+            max-width: 1400px;
+            padding: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .valid { background-color: #d4edda; color: #155724; }
+        .invalid { background-color: #f8d7da; color: #721c24; }
+        .container {
+            display: flex;
+            width: 95%;
+            max-width: 1400px;
+            height: 80vh;
+        }
+        .pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+        .hidden { display: none; }
+        .editor-container, textarea {
+            flex-grow: 1;
+            width: 100%;
+            height: calc(100% - 60px);
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        textarea {
+            resize: none;
+            padding: 10px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: scroll;
+        }
+        .CodeMirror { height: 100%; }
+        h2 {
+            text-align: center;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+        button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        button:hover { background-color: #45a049; }
+        .toggle-btn {
+            background-color: #007bff;
+            font-size: 0.8em;
+            padding: 2px 5px;
+        }
+        .toggle-btn:hover { background-color: #0056b3; }
+        .toggle-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        #formatButton {
+            background-color: #17a2b8;
+            margin-left: 20px;
+        }
+        #formatButton:hover { background-color: #138496; }
+    </style>
+</head>
+<body>
+    <div id="statusBar" class="status-bar">JSON Status: Waiting for input</div>
+    <div class="toggle-container">
+        <button onclick="togglePane('jsonPane')">Toggle JSON</button>
+        <button onclick="togglePane('stringifiedPane')">Toggle Stringified</button>
+        <button onclick="togglePane('objectPane')">Toggle Object</button>
+        <button id="formatButton" onclick="formatJSON()">Format JSON</button>
+    </div>
+    <div class="container">
+        <div id="jsonPane" class="pane">
+            <h2>
+                Formatted JSON
+                <button class="toggle-btn" onclick="convertFromJSON()">Convert</button>
+            </h2>
+            <div class="editor-container" id="jsonEditor"></div>
+            <div class="button-container">
+                <button id="copyJson">Copy JSON</button>
+            </div>
+        </div>
+        <div id="stringifiedPane" class="pane">
+            <h2>
+                Stringified JSON
+                <button class="toggle-btn" onclick="convertFromStringified()">Convert</button>
+            </h2>
+            <textarea id="stringifiedInput" placeholder="Enter your stringified JSON here"></textarea>
+            <div class="button-container">
+                <button id="copyStringified">Copy Stringified</button>
+            </div>
+        </div>
+        <div id="objectPane" class="pane">
+            <h2>
+                JSON Object
+                <button class="toggle-btn" onclick="convertFromObject()">Convert</button>
+            </h2>
+            <div class="editor-container" id="objectEditor"></div>
+            <div class="button-container">
+                <button id="copyObject">Copy Object</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stringifiedInput = document.getElementById('stringifiedInput');
+        const statusBar = document.getElementById('statusBar');
+        const copyJsonBtn = document.getElementById('copyJson');
+        const copyStringifiedBtn = document.getElementById('copyStringified');
+        const copyObjectBtn = document.getElementById('copyObject');
+
+        let jsonEditor = CodeMirror(document.getElementById('jsonEditor'), {
+            mode: {name: "javascript", json: true},
+            theme: "monokai",
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            tabSize: 2,
+            indentWithTabs: false,
+            lineWrapping: true,
+        });
+
+        let objectEditor = CodeMirror(document.getElementById('objectEditor'), {
+            mode: "javascript",
+            theme: "monokai",
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            tabSize: 2,
+            indentWithTabs: false,
+            lineWrapping: true,
+        });
+
+        function updateStatus(isValid) {
+            statusBar.textContent = isValid ? "JSON Status: Valid" : "JSON Status: Invalid";
+            statusBar.className = isValid ? "status-bar valid" : "status-bar invalid";
+        }
+
+        function tryParseJSON(str) {
+            try {
+                return JSON.parse(str);
+            } catch (e) {
+                console.error("Parsing error:", e);
+                return null;
+            }
+        }
+
+        function formatJSONContent(json) {
+            return JSON.stringify(json, null, 2);
+        }
+
+        function escapeJSON(str) {
+            return str
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r')
+                .replace(/\t/g, '\\t');
+        }
+
+        function unescapeJSON(str) {
+            return str
+                .replace(/\\n/g, '\n')
+                .replace(/\\r/g, '\r')
+                .replace(/\\t/g, '\t')
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+        }
+
+        function objectToString(obj) {
+            return JSON.stringify(obj)
+                .replace(/"(\w+)":/g, '$1:')
+                .replace(/"/g, "'");
+        }
+
+        function convertFromJSON() {
+            try {
+                const json = JSON.parse(jsonEditor.getValue());
+                stringifiedInput.value = JSON.stringify(json);
+                objectEditor.setValue(objectToString(json));
+                updateStatus(true);
+            } catch (e) {
+                alert('Invalid JSON. Unable to convert.');
+                updateStatus(false);
+            }
+        }
+
+        function convertFromStringified() {
+            try {
+                const unescaped = unescapeJSON(stringifiedInput.value);
+                const json = JSON.parse(unescaped);
+                jsonEditor.setValue(formatJSONContent(json));
+                objectEditor.setValue(objectToString(json));
+                updateStatus(true);
+            } catch (e) {
+                alert('Invalid stringified JSON. Unable to convert.');
+                updateStatus(false);
+            }
+        }
+
+        function convertFromObject() {
+            try {
+                const objValue = objectEditor.getValue().replace(/'/g, '"').replace(/(\w+):/g, '"$1":');
+                const json = JSON.parse(objValue);
+                jsonEditor.setValue(formatJSONContent(json));
+                stringifiedInput.value = JSON.stringify(json);
+                updateStatus(true);
+            } catch (e) {
+                alert('Invalid JSON object. Unable to convert.');
+                updateStatus(false);
+            }
+        }
+
+        copyJsonBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(jsonEditor.getValue()).then(() => {
+                alert('JSON copied to clipboard!');
+            });
+        });
+
+        copyStringifiedBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(stringifiedInput.value).then(() => {
+                alert('Stringified JSON copied to clipboard!');
+            });
+        });
+
+        copyObjectBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(objectEditor.getValue()).then(() => {
+                alert('JSON Object copied to clipboard!');
+            });
+        });
+
+        function togglePane(paneId) {
+            const pane = document.getElementById(paneId);
+            pane.classList.toggle('hidden');
+            adjustLayout();
+        }
+
+        function adjustLayout() {
+            const visiblePanes = document.querySelectorAll('.pane:not(.hidden)');
+            visiblePanes.forEach(pane => {
+                pane.style.flex = `1 0 ${100 / visiblePanes.length}%`;
+            });
+        }
+
+        function formatJSON() {
+            try {
+                let json;
+                if (!document.getElementById('jsonPane').classList.contains('hidden')) {
+                    json = JSON.parse(jsonEditor.getValue());
+                    jsonEditor.setValue(formatJSONContent(json));
+                }
+                if (!document.getElementById('stringifiedPane').classList.contains('hidden')) {
+                    json = JSON.parse(unescapeJSON(stringifiedInput.value));
+                    stringifiedInput.value = JSON.stringify(json);
+                }
+                if (!document.getElementById('objectPane').classList.contains('hidden')) {
+                    const objValue = objectEditor.getValue().replace(/'/g, '"').replace(/(\w+):/g, '"$1":');
+                    json = JSON.parse(objValue);
+                    objectEditor.setValue(objectToString(json));
+                }
+                updateStatus(true);
+            } catch (e) {
+                alert('Invalid JSON. Unable to format.');
+                updateStatus(false);
+            }
+        }
+    </script>
+</body>
+</html>
