@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Converter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .status-bar {
+            width: 90%;
+            max-width: 1200px;
+            padding: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+            border-radius: 4px;
+        }
+        .valid {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .invalid {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .container {
+            display: flex;
+            width: 90%;
+            max-width: 1200px;
+            height: 70vh;
+        }
+        .pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0 10px;
+        }
+        .editor-container, textarea {
+            flex-grow: 1;
+            width: 100%;
+            height: calc(100% - 60px);
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        textarea {
+            resize: none;
+            padding: 10px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: scroll;
+        }
+        .CodeMirror {
+            height: 100%;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+        button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="statusBar" class="status-bar">JSON Status: Waiting for input</div>
+    <div class="container">
+        <div class="pane">
+            <h2>Formatted JSON</h2>
+            <div class="editor-container" id="jsonEditor"></div>
+            <div class="button-container">
+                <button id="copyJson">Copy JSON</button>
+            </div>
+        </div>
+        <div class="pane">
+            <h2>Stringified JSON</h2>
+            <textarea id="stringifiedInput" placeholder="Enter your stringified JSON here"></textarea>
+            <div class="button-container">
+                <button id="copyStringified">Copy Stringified</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stringifiedInput = document.getElementById('stringifiedInput');
+        const statusBar = document.getElementById('statusBar');
+        const copyJsonBtn = document.getElementById('copyJson');
+        const copyStringifiedBtn = document.getElementById('copyStringified');
+
+        let jsonEditor = CodeMirror(document.getElementById('jsonEditor'), {
+            mode: {name: "javascript", json: true},
+            theme: "monokai",
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            tabSize: 2,
+            indentWithTabs: false,
+            lineWrapping: true,
+        });
+
+        function updateStatus(isValid) {
+            statusBar.textContent = isValid ? "JSON Status: Valid" : "JSON Status: Invalid";
+            statusBar.className = isValid ? "status-bar valid" : "status-bar invalid";
+        }
+
+        function tryParseJSON(str) {
+            try {
+                return JSON.parse(str);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function formatJSON(json) {
+            return JSON.stringify(json, null, 2);
+        }
+
+        function escapeJSON(str) {
+            return str
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r')
+                .replace(/\t/g, '\\t');
+        }
+
+        function unescapeJSON(str) {
+            return str
+                .replace(/\\n/g, '\n')
+                .replace(/\\r/g, '\r')
+                .replace(/\\t/g, '\t')
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
+        }
+
+        jsonEditor.on('change', function() {
+            const value = jsonEditor.getValue();
+            const parsed = tryParseJSON(value);
+            if (parsed !== null) {
+                stringifiedInput.value = escapeJSON(JSON.stringify(parsed));
+                updateStatus(true);
+            } else {
+                stringifiedInput.value = escapeJSON(value);
+                updateStatus(false);
+            }
+        });
+
+        stringifiedInput.addEventListener('input', function() {
+            const unescaped = unescapeJSON(this.value);
+            const parsed = tryParseJSON(unescaped);
+            if (parsed !== null) {
+                jsonEditor.setValue(formatJSON(parsed));
+                updateStatus(true);
+            } else {
+                jsonEditor.setValue(unescaped);
+                updateStatus(false);
+            }
+        });
+
+        copyJsonBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(jsonEditor.getValue()).then(() => {
+                alert('JSON copied to clipboard!');
+            });
+        });
+
+        copyStringifiedBtn.addEventListener('click', function() {
+            navigator.clipboard.writeText(stringifiedInput.value).then(() => {
+                alert('Stringified JSON copied to clipboard!');
+            });
+        });
+    </script>
+</body>
+</html>
