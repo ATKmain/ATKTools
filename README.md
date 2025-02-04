@@ -14,6 +14,13 @@ ATKTools/
 │   └── [Temporary files go here]
 ├── data/
 │   └── [Data files go here]
+├── output/
+│   └── batch_YYYYMMDD_HHMMSS/
+│       ├── images/
+│       │   └── [Extracted page images]
+│       ├── texts/
+│       │   └── [Individual page extractions]
+│       └── combined_results.md
 ├── gpu_benchmark_tensorflow.py
 ├── gpu_benchmark_torch.py
 ├── json-converter.html
@@ -21,6 +28,7 @@ ATKTools/
 ├── jsonstrin_to_json.py
 ├── md_to_docx.py
 ├── pdf_to_text.py
+├── process_questionnaire.py
 ├── snake_continue_codelama70b2.py
 ├── snake_game_codelama70b.py
 ├── snake_game_gemeni_pro.py
@@ -34,6 +42,27 @@ ATKTools/
 ```
 
 ## Description of Files
+
+### Document Processing and AI
+- **process_questionnaire.py**: Script to process scanned questionnaires using Azure OpenAI GPT-4o. Features:
+  - Converts PDF pages to high-quality images
+  - Uses GPT-4o Vision to extract handwritten text
+  - Generates individual page extractions and images
+  - Creates a combined markdown report
+  - Organizes output in timestamped batches
+
+- **extract_text.py**: Script to extract text from PDFs using Azure Document Intelligence. Features:
+  - High-quality text extraction from PDFs
+  - Handles multi-page documents
+  - Saves extracted text in JSON format
+  - Avoids repeated API calls by saving results
+
+- **process_qa.py**: Script to process questionnaire responses using Azure OpenAI. Features:
+  - Works with extract_text.py output
+  - Formats responses in markdown and Excel
+  - Supports test mode for validation
+  - Creates organized Q&A pairs
+  - Generates tabulated Excel summary
 
 ### Bitcoin Analysis
 - **btc_cycles_comparison.py**: Script for comparing Bitcoin market cycles.
@@ -63,6 +92,18 @@ ATKTools/
 
 ### Miscellaneous
 - **token_count.py**: Script to count tokens in a given input.
+
+## Requirements
+
+Different scripts may have different requirements. For specific requirements:
+
+### process_questionnaire.py
+```
+python-dotenv==1.0.0
+openai==1.12.0
+PyMuPDF==1.23.26
+Pillow==10.2.0
+```
 
 ## Contributing
 

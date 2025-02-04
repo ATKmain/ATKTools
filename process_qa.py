@@ -1,3 +1,46 @@
+"""
+GCC Questionnaire Response Processor
+
+This script processes questionnaire responses extracted from PDF files using Azure Document Intelligence
+and Azure OpenAI services. It works in conjunction with extract_text.py to create organized Q&A outputs.
+
+Workflow:
+1. First run extract_text.py to get text from PDF using Azure Document Intelligence
+2. Then run this script to process the extracted text and create organized outputs
+
+Input:
+- data/extracted_text.json: JSON file containing extracted text from PDF pages
+
+Outputs:
+1. Markdown file (qa_extracted.md or qa_extracted_test.md):
+   - Contains formatted Q&A responses
+   - Each response includes name, function, and answers to GCC questions
+   - Test mode adds '_test' suffix and processes only first few pages
+
+2. Excel file (qa_responses.xlsx or qa_responses_test.xlsx):
+   - Tabulated format of responses
+   - Columns: Name & Function, Opportunities to establish GCC, Opportunities to scale/transform GCC
+   - Test mode adds '_test' suffix
+
+Usage:
+1. Test mode (default):
+   - Processes first 5 pages only
+   - Creates *_test.md and *_test.xlsx files
+   - Review output before processing all pages
+
+2. Full processing:
+   - Set page_limit = None
+   - Processes all pages
+   - Creates final output files
+
+Requirements:
+- Python 3.8+
+- openai
+- pandas
+- python-dotenv
+- Azure OpenAI API access
+"""
+
 import os
 import json
 import pandas as pd

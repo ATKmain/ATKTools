@@ -1,3 +1,35 @@
+"""
+PDF Text Extractor using Azure Document Intelligence
+
+This script extracts text from PDF files using Azure Document Intelligence service.
+It's designed to work with the process_qa.py script for processing questionnaire responses.
+
+Input:
+- PDF file (default: data/d1.pdf)
+
+Output:
+- JSON file (data/extracted_text.json):
+  - Contains extracted text from each page
+  - Includes total page count
+  - Structured for easy processing by process_qa.py
+
+Features:
+- Uses Azure Document Intelligence for high-quality text extraction
+- Handles multi-page PDFs
+- Preserves page-by-page text separation
+- Saves results for later processing to avoid repeated API calls
+
+Requirements:
+- Python 3.8+
+- azure-ai-documentintelligence
+- python-dotenv
+- Azure Document Intelligence API access
+
+Environment Variables Required:
+- AZURE_ENDPOINT: Azure Document Intelligence endpoint
+- AZURE_KEY: Azure Document Intelligence API key
+"""
+
 import os
 import json
 from dotenv import load_dotenv

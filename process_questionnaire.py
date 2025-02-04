@@ -1,3 +1,38 @@
+"""
+Questionnaire Processing Script using Azure OpenAI GPT-4V
+
+This script processes scanned questionnaires in PDF format, extracting handwritten text using
+Azure OpenAI's GPT-4V/4o (Vision) model. It handles multi-page PDFs and generates both individual
+page extractions and a combined report.
+
+Features:
+- Converts PDF pages to high-quality images
+- Uses GPT-4V to extract handwritten text
+- Generates individual page extractions and images
+- Creates a combined markdown report
+- Organizes output in timestamped batches
+
+Requirements:
+- Azure OpenAI API access with GPT-4V/4o deployment
+- Environment variables in .env file:
+  - AZURE_OPENAI_API_KEY: Your Azure OpenAI API key
+  - AZURE_OPENAI_API_VERSION: API version (e.g., "2024-02-15-preview")
+  - AZURE_OPENAI_ENDPOINT: Your Azure endpoint URL
+  - AZURE_OPENAI_DEPLOYMENT_NAME: Your GPT-4V deployment name
+
+Usage:
+    python process_questionnaire.py
+
+Output Structure:
+    output/
+    └── batch_YYYYMMDD_HHMMSS/
+        ├── images/              # High-quality PNG images of each page
+        │   └── page_N.png
+        ├── texts/              # Individual markdown files for each page
+        │   └── page_N.md
+        └── combined_results.md  # Combined report with all pages
+"""
+
 import os
 from dotenv import load_dotenv
 import fitz  # PyMuPDF
@@ -8,32 +43,57 @@ import io
 import json
 from datetime import datetime
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env file
+load_dotenv(override=True)
 
-# Initialize Azure OpenAI client
+# Initialize Azure OpenAI client with environment variables
 client = AzureOpenAI(
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
     api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
 )
 
-def encode_image_to_base64(image):
-    """Convert PIL Image to base64 string"""
+def encode_image_to_base64(image: Image.Image) -> str:
+    """
+    Convert a PIL Image to a base64 encoded string.
+    
+    Args:
+        image (PIL.Image.Image): The input image to encode
+        
+    Returns:
+        str: Base64 encoded string of the image
+        
+    Note:
+        Uses PNG format with maximum quality for best OCR results
+    """
     buffered = io.BytesIO()
-    # Save as PNG with maximum quality
+    # Save as PNG with maximum quality for optimal GPT-4V analysis
     image.save(buffered, format="PNG", quality=100, optimize=False)
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-def analyze_image_with_gpt4(image):
-    """Analyze image using GPT-4 Vision"""
+def analyze_image_with_gpt4(image: Image.Image) -> str:
+    """
+    Analyze an image using Azure OpenAI's GPT-4V model to extract questionnaire information.
+    
+    Args:
+        image (PIL.Image.Image): The image to analyze
+        
+    Returns:
+        str: Markdown formatted string containing the extracted information
+        
+    Note:
+        Uses a specific prompt structure to ensure consistent and accurate extraction
+        of handwritten text and questionnaire fields.
+    """
     base64_image = encode_image_to_base64(image)
     
+    # System message defines the AI's role and general behavior
     system_message = """You are an expert at analyzing questionnaire images and extracting information with high accuracy. 
     Your task is to carefully read and transcribe handwritten text from questionnaire images.
     You must be thorough and precise in your extraction, paying special attention to handwritten text.
     Format your response in a clear, structured markdown format."""
 
+    # User message provides specific instructions for the analysis
     user_message = """Please analyze this questionnaire image and extract the following information with high accuracy:
 
     1. First locate and transcribe the name of the person who filled out the questionnaire
@@ -57,8 +117,9 @@ def analyze_image_with_gpt4(image):
     
     **Be as accurate as possible in reading the handwritten text.**"""
 
+    # Make API call to Azure OpenAI
     response = client.chat.completions.create(
-        model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),  # This should be set to your GPT-4V deployment name
+        model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         messages=[
             {
                 "role": "system",
@@ -80,30 +141,55 @@ def analyze_image_with_gpt4(image):
                 ]
             }
         ],
-        temperature=0.3,  # Lower temperature for more accurate responses
-        max_tokens=4000   # Increased token limit for more detailed responses
+        temperature=0.3,  # Lower temperature for more consistent results
+        max_tokens=4000   # Increased token limit for detailed responses
     )
     
     return response.choices[0].message.content
 
-def pdf_page_to_pil(page):
-    """Convert PDF page to PIL Image"""
-    # Get the page's pixmap with high resolution
-    pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72))  # 300 DPI
+def pdf_page_to_pil(page: fitz.Page) -> Image.Image:
+    """
+    Convert a PyMuPDF (fitz) page to a PIL Image.
+    
+    Args:
+        page (fitz.Page): The PDF page to convert
+        
+    Returns:
+        PIL.Image.Image: The converted image at 300 DPI
+        
+    Note:
+        Uses 300 DPI for high-quality text recognition
+    """
+    # Get the page's pixmap at 300 DPI
+    pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72))
     
     # Convert pixmap to PIL Image
     img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
     return img
 
-def process_pdf(pdf_path, output_dir="output", page_limit=5):
-    """Process PDF and generate markdown output"""
-    # Create output directory if it doesn't exist
+def process_pdf(pdf_path: str, output_dir: str = "output", page_limit: int = 5) -> None:
+    """
+    Process a PDF file containing questionnaires and extract information using GPT-4V.
+    
+    Args:
+        pdf_path (str): Path to the input PDF file
+        output_dir (str): Directory to store the output files (default: "output")
+        page_limit (int): Maximum number of pages to process (default: 5)
+        
+    Output Structure:
+        Creates a timestamped batch directory containing:
+        - images/: Directory with PNG images of each page
+        - texts/: Directory with individual markdown files for each page
+        - combined_results.md: Combined report with all pages
+        
+    Note:
+        - Images are saved as high-quality PNGs
+        - Each page's text is saved separately and also included in the combined report
+        - The combined report includes links to the individual images
+    """
+    # Create output directory structure
     os.makedirs(output_dir, exist_ok=True)
-    
-    # Create timestamp for this batch
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Create a subdirectory for this processing batch
     batch_dir = os.path.join(output_dir, f"batch_{timestamp}")
     os.makedirs(batch_dir, exist_ok=True)
     
@@ -113,7 +199,7 @@ def process_pdf(pdf_path, output_dir="output", page_limit=5):
     os.makedirs(images_dir, exist_ok=True)
     os.makedirs(texts_dir, exist_ok=True)
     
-    # Open the PDF
+    # Process the PDF
     print("Opening PDF...")
     try:
         pdf_document = fitz.open(pdf_path)
@@ -136,7 +222,7 @@ def process_pdf(pdf_path, output_dir="output", page_limit=5):
                     image = pdf_page_to_pil(page)
                     
                     # Optimize image if needed
-                    max_size = 4000  # Maximum dimension
+                    max_size = 4000  # Maximum dimension for API compatibility
                     if max(image.size) > max_size:
                         ratio = max_size / max(image.size)
                         new_size = tuple(int(dim * ratio) for dim in image.size)
