@@ -106,8 +106,8 @@ def main():
     client = initialize_client()
     
     # Input and output file paths
-    input_file = "C:/repo/pythonScripts/data/fe2.pdf"
-    output_file = "C:/repo/pythonScripts/data/fe2_searchable_output.pdf"
+    input_file = "C:/repo/pythonScripts/data/d1.pdf"
+    output_file = "C:/repo/pythonScripts/data/d1_searchable_output.pdf"
     
     print("Starting document analysis...")
     
