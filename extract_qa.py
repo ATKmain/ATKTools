@@ -5,6 +5,7 @@ from openai import AzureOpenAI
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 import base64
+import pandas as pd
 
 
 def initialize_doc_client():
@@ -19,7 +20,7 @@ def initialize_doc_client():
 
 
 def extract_text_from_pdf(pdf_path):
-    """Extracts all text from the given PDF file using Azure Document Intelligence."""
+    """Extracts text from the given PDF file using Azure Document Intelligence and returns a list of page texts."""
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF file not found at path: {pdf_path}")
 
@@ -43,36 +44,26 @@ def extract_text_from_pdf(pdf_path):
     
     result = poller.result()
     
-    # Extract text from the result
-    text = ""
+    # Extract text from the result, page by page
+    pages_text = []
     for page_num, page in enumerate(result.pages, 1):
         page_text = ""
         for line in page.lines:
             page_text += line.content + " "
-        text += page_text + "\n"
+        pages_text.append(page_text)
         print(f"Page {page_num}: Extracted {len(page_text)} characters")
     
-    if text.strip():
-        print(f"\nTotal extracted text length: {len(text)} characters")
-        print("\nFirst 500 characters of extracted text:")
-        print("-" * 50)
-        print(text[:500])
-        print("-" * 50)
-    else:
-        print("Warning: No text was extracted from the PDF!")
-    
-    return text
+    return pages_text
 
 
-def extract_qa_from_text(text, deployment_name):
-    """Uses Azure OpenAI to extract question and answer pairs from text and return them in markdown format."""
-    if not text.strip():
-        return "Error: No text was provided for Q&A extraction. Please check if the PDF contains searchable text."
-        
-    prompt = f"""Analyze the following questionnaire responses and organize them by person/respondent. 
-Each page appears to be a response from a different person.
+def process_single_response(text):
+    """Process a single questionnaire response and return structured data."""
+    prompt = f"""Extract the following information from this questionnaire response and format it in a clear way:
 
-For each respondent, extract and format the information as follows:
+1. Name and Function/Role
+2. All questions and their corresponding answers
+
+Format the response as follows:
 
 ## Respondent: [Name and Function/Role]
 
@@ -82,28 +73,12 @@ For each respondent, extract and format the information as follows:
 ### Question: [Question text]
 **Answer:** [Their response]
 
-[Continue with all questions and answers for this respondent]
-
----
-
-[Repeat for next respondent]
-
-Important:
-- Start each respondent's section with their name as a header
-- Include all questions and answers for each respondent
-- Use markdown formatting
-- Separate each respondent's section with a horizontal line (---)
-- Make sure to capture any additional comments or notes they provided
+[Continue with remaining questions and answers]
 
 Document Text:
 {text}
 """
     
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant that organizes questionnaire responses into a clear, person-by-person format."},
-        {"role": "user", "content": prompt}
-    ]
-
     try:
         client = AzureOpenAI(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -111,53 +86,92 @@ Document Text:
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
         )
         
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant that extracts and formats questionnaire responses."},
+            {"role": "user", "content": prompt}
+        ]
+        
         response = client.chat.completions.create(
-            model=deployment_name,
+            model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             messages=messages,
-            temperature=0.1,  # Reduced temperature for more consistent formatting
-            max_tokens=2000   # Increased token limit for longer responses
+            temperature=0.1,
+            max_tokens=1000
         )
         
-        # Add a header to the markdown file
-        header = """# GCC Breakout Questionnaire Responses
-
-This document contains organized responses from the GCC Breakout Questionnaire, with each respondent's answers presented separately.
-
----
-
-"""
-        return header + response.choices[0].message.content
+        return response.choices[0].message.content
     except Exception as e:
-        return f"Error during Q&A extraction: {str(e)}"
+        return f"Error processing response: {str(e)}"
+
+
+def extract_data_for_excel(markdown_text):
+    """Extract data from markdown text for Excel format."""
+    try:
+        # Extract name from the first line that contains "Answer:"
+        name_line = next(line for line in markdown_text.split('\n') if "Answer:" in line and "Name" in line)
+        name = name_line.split("Answer:")[1].strip()
+        
+        # Extract other Q&A pairs
+        qa_pairs = {}
+        current_question = None
+        
+        for line in markdown_text.split('\n'):
+            if line.startswith('### Question:'):
+                current_question = line.replace('### Question:', '').strip()
+            elif line.startswith('**Answer:**') and current_question:
+                answer = line.replace('**Answer:**', '').strip()
+                qa_pairs[current_question] = answer
+                
+        return name, qa_pairs
+    except Exception as e:
+        print(f"Error extracting data: {str(e)}")
+        return None, None
 
 
 def main():
-    # Load environment variables from .env
+    # Load environment variables
     load_dotenv()
 
-    # Get the deployment name from environment variables
-    deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
-    if not deployment_name:
-        print("Error: AZURE_OPENAI_DEPLOYMENT_NAME not found in environment variables")
-        return
-
-    # Define the path to the original PDF file (not the searchable output)
+    # Define the paths
     pdf_path = "data/d1.pdf"
+    markdown_path = "qa_extracted.md"
+    excel_path = "qa_responses.xlsx"
     
     try:
         print(f"Attempting to read PDF from: {os.path.abspath(pdf_path)}")
         print("Extracting text from PDF...")
-        text = extract_text_from_pdf(pdf_path)
+        pages_text = extract_text_from_pdf(pdf_path)
 
-        print("\nExtracting Q&A pairs using Azure OpenAI...")
-        qa_markdown = extract_qa_from_text(text, deployment_name)
+        # Process each page and collect responses
+        print("\nProcessing responses...")
+        all_responses = []
+        excel_data = []
+        
+        for i, page_text in enumerate(pages_text, 1):
+            print(f"Processing response {i} of {len(pages_text)}...")
+            response_text = process_single_response(page_text)
+            all_responses.append(response_text)
+            
+            # Extract data for Excel
+            name, qa_pairs = extract_data_for_excel(response_text)
+            if name and qa_pairs:
+                excel_data.append({"Name": name, **qa_pairs})
 
-        # Write the output to a markdown file
-        output_path = "qa_extracted.md"
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(qa_markdown)
+        # Write markdown file
+        print("\nWriting markdown file...")
+        with open(markdown_path, "w", encoding="utf-8") as f:
+            f.write("# GCC Breakout Questionnaire Responses\n\n")
+            f.write("This document contains organized responses from the GCC Breakout Questionnaire.\n\n")
+            f.write("---\n\n")
+            f.write("\n---\n\n".join(all_responses))
 
-        print(f"Q&A pairs extracted and saved to {output_path}")
+        # Create Excel file
+        print("Creating Excel file...")
+        df = pd.DataFrame(excel_data)
+        df.to_excel(excel_path, index=False, sheet_name="Questionnaire Responses")
+
+        print(f"Responses have been saved to:")
+        print(f"- Markdown: {markdown_path}")
+        print(f"- Excel: {excel_path}")
         
     except Exception as e:
         print(f"Error: {str(e)}")
